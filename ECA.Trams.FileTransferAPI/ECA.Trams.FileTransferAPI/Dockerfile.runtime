@@ -1,0 +1,8 @@
+# Runtime-only image. Build on the host first (see build-docker.ps1).
+# Use this on corporate networks where Docker cannot reach api.nuget.org.
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+WORKDIR /app
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://+:8080
+COPY ./artifacts/publish/ .
+ENTRYPOINT ["dotnet", "ECA.Trams.FileTransferAPI.dll"]

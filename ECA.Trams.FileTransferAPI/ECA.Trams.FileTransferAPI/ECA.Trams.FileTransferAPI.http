@@ -1,0 +1,6 @@
+@ECA.Trams.FileTransferAPI_HostAddress = http://localhost:5155
+
+GET {{ECA.Trams.FileTransferAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,116 @@
+﻿using ECA.Trams.FileTransferAPI.DTO.ETranslation;
+using ECA.Trams.FileTransferAPI.Services;
+using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Threading.Tasks;
+
+namespace ECA.Trams.FileTransferAPI.Controllers;
+
+/// <summary>
+/// Defines the API for eTranslation webhook notifications.
+/// </summary>
+[Controller]
+[Route("webhook/etranslation")]
+public class FileTransferController : ControllerBase
+{
+    //private readonly IEcaLogger _logger;
+    private readonly IFileTransferService _webhookService;
+
+    public FileTransferController(IFileTransferService fileTransferService)
+    {
+        _webhookService = fileTransferService;
+    }
+
+    /// <summary>
+    /// Receives translation delivery notifications from eTranslation.
+    /// </summary>
+    [HttpPost]
+    [Route("v1/deliveries")]
+    [Consumes("application/json", "text/json")]
+    public async Task<IActionResult> HandleDeliveriesNotification([FromBody] ETranslationDeliveriesRequest notification)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (notification == null)
+            {
+                throw new ArgumentNullException(nameof(notification), "Parameter cannot be null.");
+            }
+
+            await _webhookService.ProcessNotificationAsync(notification);
+
+            return StatusCode((int)System.Net.HttpStatusCode.OK);
+        }
+        catch (Exception ex)
+        {
+            //_logger.LogError(ex);
+            return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Receives translation success notifications from eTranslation.
+    /// </summary>
+    [HttpPost]
+    [Route("v1/success")]
+    [Consumes("application/json", "text/json")]
+    public async Task<IActionResult> HandleSuccessNotification([FromBody] ETranslationSuccessRequest notification)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (notification == null)
+            {
+                throw new ArgumentNullException(nameof(notification), "Parameter cannot be null.");
+            }
+
+            await _webhookService.ProcessNotificationAsync(notification);
+
+            return StatusCode((int)System.Net.HttpStatusCode.OK);
+        }
+        catch (Exception ex)
+        {
+            //_logger.LogError(ex);
+            return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Receives translation error notifications from eTranslation.
+    /// </summary>
+    [HttpPost]
+    [Route("v1/error")]
+    [Consumes("application/json", "text/json")]
+    public async Task<IActionResult> HandleErrorNotification([FromBody] object notification)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (notification == null)
+            {
+                throw new ArgumentNullException(nameof(notification), "Parameter cannot be null.");
+            }
+
+            await _webhookService.ProcessNotificationAsync(notification);
+
+            return StatusCode((int)System.Net.HttpStatusCode.OK);
+        }
+        catch (Exception ex)
+        {
+            //_logger.LogError(ex);
+            return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
+        }
+    }
+}
