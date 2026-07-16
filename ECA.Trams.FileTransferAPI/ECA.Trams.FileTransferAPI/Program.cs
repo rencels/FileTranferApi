@@ -3,30 +3,36 @@ using ECA.Trams.FileTransferAPI.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddSingleton<ISettingsContext, SettingsContext>();
 builder.Services.AddScoped<IETranslationResultFileWriter, ETranslationResultFileWriter>();
 builder.Services.AddScoped<IFileTransferService, FileTransferService>();
+builder.Services.AddHttpClient<IWebHookService, WebHookService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Azure terminates TLS at the front door; do not force HTTPS redirect inside the container.
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthorization();
 
+app.MapHealthChecks("/health");
 app.MapControllers();
 
 app.Run();

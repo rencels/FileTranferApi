@@ -19,4 +19,7 @@ public class ETranslationDeliveriesRequest
 
     [JsonPropertyName("outputFormat")]
     public string OutputFormat { get; set; }
+
+    [JsonPropertyName("externalReference")]
+    public string ExternalReference { get; set; }
 }
