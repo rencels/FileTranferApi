@@ -47,10 +47,49 @@ jobs:
         with:
           name: .net-app
 
-      - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'eTranlsations'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-          package: .
+      - name: Deploy to Azure Web App (Kudu ZipDeploy)
+        env:
+          PUBLISH_PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [xml]$profile = $env:PUBLISH_PROFILE
+          $zipProfile = $profile.publishData.publishProfile |
+            Where-Object { $_.publishMethod -eq 'ZipDeploy' } |
+            Select-Object -First 1
+          if (-not $zipProfile) { throw 'ZipDeploy profile not found in publish profile secret.' }
+
+          $userName = $zipProfile.userName
+          $password = $zipProfile.userPWD
+          $publishUrl = $zipProfile.publishUrl
+          $scmHost = ($publishUrl -split ':')[0]
+          $pair = "{0}:{1}" -f $userName, $password
+          $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+
+          $zipPath = Join-Path $env:RUNNER_TEMP 'site.zip'
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Compress-Archive -Path (Join-Path $PWD '*') -DestinationPath $zipPath -Force
+          Write-Host "Created package $zipPath ($((Get-Item $zipPath).Length) bytes)"
+
+          $uri = "https://$scmHost/api/zipdeploy?isAsync=true"
+          Write-Host "Deploying to $uri"
+          $response = Invoke-WebRequest -Uri $uri -Method POST -Headers @{ Authorization = "Basic $basic" } -InFile $zipPath -ContentType 'application/octet-stream' -UseBasicParsing
+          Write-Host "ZipDeploy accepted: $($response.StatusCode)"
+
+          # Poll deployment status
+          $statusUri = "https://$scmHost/api/deployments/latest"
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 5
+            try {
+              $status = Invoke-RestMethod -Uri $statusUri -Headers @{ Authorization = "Basic $basic" }
+              Write-Host ("Status={0} complete={1} progress={2}" -f $status.status, $status.complete, $status.progress)
+              if ($status.complete -eq $true) {
+                if ($status.status -eq 4) { throw "Deployment failed: $($status.status_text)" }
+                Write-Host 'Deployment completed successfully.'
+                break
+              }
+            } catch {
+              if ($i -eq 59) { throw }
+              Write-Host "Waiting for deployment... $($_.Exception.Message)"
+            }
+          }
