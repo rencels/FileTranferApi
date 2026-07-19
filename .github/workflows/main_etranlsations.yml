@@ -39,7 +39,6 @@ jobs:
     runs-on: windows-latest
     needs: build
     permissions:
-      id-token: write
       contents: read
 
     steps:
@@ -48,17 +47,11 @@ jobs:
         with:
           name: .net-app
 
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_FEA4C36A1670439482A2C4640FBEB1DA }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_AC19BC1FA6FD44798CCA87924488D7F9 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_964C2F009A894FA09D2E74F56912BF65 }}
-
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'eTranlsations'
           slot-name: 'Production'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: .
