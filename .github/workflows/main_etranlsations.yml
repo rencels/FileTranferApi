@@ -76,19 +76,24 @@ jobs:
           $response = Invoke-WebRequest -Uri $uri -Method POST -Headers @{ Authorization = "Basic $basic" } -InFile $zipPath -ContentType 'application/octet-stream' -UseBasicParsing
           Write-Host "ZipDeploy accepted: $($response.StatusCode)"
 
-          # Poll deployment status
+          # Poll deployment status (Kudu: 3=Failed, 4=Success)
           $statusUri = "https://$scmHost/api/deployments/latest"
           for ($i = 0; $i -lt 60; $i++) {
             Start-Sleep -Seconds 5
             try {
               $status = Invoke-RestMethod -Uri $statusUri -Headers @{ Authorization = "Basic $basic" }
-              Write-Host ("Status={0} complete={1} progress={2}" -f $status.status, $status.complete, $status.progress)
+              Write-Host ("Status={0} complete={1} progress={2} text={3}" -f $status.status, $status.complete, $status.progress, $status.status_text)
               if ($status.complete -eq $true) {
-                if ($status.status -eq 4) { throw "Deployment failed: $($status.status_text)" }
-                Write-Host 'Deployment completed successfully.'
-                break
+                if ($status.status -eq 3) {
+                  throw "Deployment failed: $($status.status_text)"
+                }
+                if ($status.status -eq 4) {
+                  Write-Host 'Deployment completed successfully.'
+                  break
+                }
               }
             } catch {
+              if ($_.Exception.Message -like 'Deployment failed:*') { throw }
               if ($i -eq 59) { throw }
               Write-Host "Waiting for deployment... $($_.Exception.Message)"
             }
