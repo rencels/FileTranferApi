@@ -24,16 +24,16 @@ jobs:
           dotnet-version: '8.x'
 
       - name: Build with dotnet
-        run: dotnet build ./FileTranferApi/FileTranferApi.csproj --configuration Release
+        run: dotnet build ./ECA.Trams.FileTransferAPI/ECA.Trams.FileTransferAPI/ECA.Trams.FileTransferAPI.csproj --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish ./FileTranferApi/FileTranferApi.csproj --configuration Release --output ./publish
+        run: dotnet publish ./ECA.Trams.FileTransferAPI/ECA.Trams.FileTransferAPI/ECA.Trams.FileTransferAPI.csproj --configuration Release --output ./publish
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          path: ./publish
 
   deploy:
     runs-on: windows-latest
@@ -62,4 +62,3 @@ jobs:
           app-name: 'eTranlsations'
           slot-name: 'Production'
           package: .
-          
