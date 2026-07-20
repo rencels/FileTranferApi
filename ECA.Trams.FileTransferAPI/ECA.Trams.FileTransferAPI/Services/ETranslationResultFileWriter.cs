@@ -59,6 +59,26 @@ public partial class ETranslationResultFileWriter : IETranslationResultFileWrite
         return filePath;
     }
 
+    public List<string> GetFilesList(long requestId)
+    {
+        var outputDirectory = _settings.TempFileLocationOutputPath;
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            throw new InvalidOperationException("ETranslationService:OutputPath is not configured.");
+        }
+
+        if (!Directory.Exists(outputDirectory))
+        {
+            return [];
+        }
+
+        var searchPattern = $"{requestId}-*";
+        return Directory
+            .EnumerateFiles(outputDirectory, searchPattern, SearchOption.TopDirectoryOnly)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private static string ValidatePathSegment(string value, string paramName)
     {
         if (!SafePathSegmentPattern().IsMatch(value))
