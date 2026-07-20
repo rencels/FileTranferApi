@@ -1,4 +1,4 @@
-﻿using ECA.Trams.FileTransferAPI.DTO.ETranslation;
+using ECA.Trams.FileTransferAPI.DTO.ETranslation;
 using Microsoft.Extensions.Logging;
 
 namespace ECA.Trams.FileTransferAPI.Services;
@@ -56,5 +56,10 @@ public class FileTransferService : IFileTransferService
     {
         ArgumentNullException.ThrowIfNull(notification);
         await _webHookService.SignalTranslationErrorEventAsync(notification);
+    }
+
+    public List<string> GetFilesList(long requestId)
+    {
+        return _fileWriter.GetFilesList(requestId);
     }
 }
