@@ -1,4 +1,4 @@
-﻿using ECA.Trams.FileTransferAPI.DTO.ETranslation;
+using ECA.Trams.FileTransferAPI.DTO.ETranslation;
 
 namespace ECA.Trams.FileTransferAPI.Services;
 
@@ -9,5 +9,7 @@ public interface IFileTransferService
     Task ProcessNotificationAsync(ETranslationSuccessRequest request);
 
     Task ProcessNotificationAsync(object notification);
+
+    List<string> GetFilesList(long requestId);
 }
 
