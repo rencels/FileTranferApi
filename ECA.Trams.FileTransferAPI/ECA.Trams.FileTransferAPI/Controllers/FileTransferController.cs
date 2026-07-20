@@ -1,4 +1,4 @@
-﻿using ECA.Trams.FileTransferAPI.DTO.ETranslation;
+using ECA.Trams.FileTransferAPI.DTO.ETranslation;
 using ECA.Trams.FileTransferAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -108,6 +108,25 @@ public class FileTransferController : ControllerBase
             return StatusCode((int)System.Net.HttpStatusCode.OK);
         }
         catch (Exception ex)
+        {
+            //_logger.LogError(ex);
+            return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Returns the list of result files stored for a given eTranslation request.
+    /// </summary>
+    [HttpGet]
+    [Route("v1/documents/{requestId:long}")]
+    public IActionResult GetDocumentsList(long requestId)
+    {
+        try
+        {
+            var files = _webhookService.GetFilesList(requestId);
+            return Ok(files);
+        }
+        catch (Exception)
         {
             //_logger.LogError(ex);
             return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
