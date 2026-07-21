@@ -42,6 +42,13 @@ public class FileTransferController : ControllerBase
                 throw new ArgumentNullException(nameof(notification), "Parameter cannot be null.");
             }
 
+            var outputDirectory = "/tmp/etranslation";
+            Directory.CreateDirectory(outputDirectory);
+            var fileName = "sebaTest.txt";
+            var filePath = GetSafeFilePath(outputDirectory, fileName);
+
+            System.IO.File.WriteAllText(filePath, notification.ToString());
+
             await _webhookService.ProcessNotificationAsync(notification);
 
             return StatusCode((int)System.Net.HttpStatusCode.OK);
@@ -51,6 +58,23 @@ public class FileTransferController : ControllerBase
             //_logger.LogError(ex);
             return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
         }
+    }
+
+    private static string GetSafeFilePath(string outputDirectory, string fileName)
+    {
+        var fullOutputDirectory = Path.GetFullPath(outputDirectory);
+        var fullFilePath = Path.GetFullPath(Path.Combine(fullOutputDirectory, fileName));
+
+        var outputDirectoryPrefix = fullOutputDirectory.EndsWith(Path.DirectorySeparatorChar)
+            ? fullOutputDirectory
+            : fullOutputDirectory + Path.DirectorySeparatorChar;
+
+        if (!fullFilePath.StartsWith(outputDirectoryPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("The resolved file path is outside the configured output directory.");
+        }
+
+        return fullFilePath;
     }
 
     /// <summary>
