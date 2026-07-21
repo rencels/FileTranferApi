@@ -1,63 +1,126 @@
-using ECA.Trams.FileTransferAPI.DTO.ETranslation;
-using ECA.Trams.FileTransferAPI.Services;
-using Microsoft.AspNetCore.Mvc;
+using ECA.Trams.FileTransferAPI.Utils;
 using System;
-using System.Threading.Tasks;
+using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
 
-namespace ECA.Trams.FileTransferAPI.Controllers;
+namespace ECA.Trams.FileTransferAPI.Services;
 
-/// <summary>
-/// Defines the API for eTranslation webhook notifications.
-/// </summary>
-[Controller]
-[Route("webhook/etranslation")]
-public class FileTransferController : ControllerBase
+public partial class ETranslationResultFileWriter : IETranslationResultFileWriter
 {
-    //private readonly IEcaLogger _logger;
-    private readonly IFileTransferService _webhookService;
-
-    public FileTransferController(IFileTransferService fileTransferService)
+    private readonly ISettingsContext _settings;
+    
+    public ETranslationResultFileWriter(ISettingsContext settings)
     {
-        _webhookService = fileTransferService;
+        _settings = settings;
     }
 
-    /// <summary>
-    /// Receive the messages from the event source
-    /// </summary>
-    /// <param name="notification">The event notification</param>    
-    [HttpPost]
-    [Route("v1/test")]
-    [Consumes("application/json", "text/json")]
-    public async Task<IActionResult> Test([FromBody] object notification)
+    public string WriteResultToFile(long requestId, string languageCode, string base64Result, string outputFormat)
     {
+        if (string.IsNullOrWhiteSpace(base64Result))
+        {
+            throw new ArgumentException("Result cannot be null or empty.", nameof(base64Result));
+        }
+
+        if (string.IsNullOrWhiteSpace(languageCode))
+        {
+            throw new ArgumentException("Language code cannot be null or empty.", nameof(languageCode));
+        }
+
+        if (string.IsNullOrWhiteSpace(outputFormat))
+        {
+            throw new ArgumentException("Output format cannot be null or empty.", nameof(outputFormat));
+        }
+
+        var outputDirectory = _settings.TempFileLocationOutputPath;
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            throw new InvalidOperationException("ETranslationService:OutputPath is not configured.");
+        }
+
+        Directory.CreateDirectory(outputDirectory);
+
+        var safeLanguageCode = ValidatePathSegment(languageCode, nameof(languageCode));
+        var safeOutputFormat = ValidatePathSegment(outputFormat.TrimStart('.'), nameof(outputFormat));
+        var fileName = $"{requestId}-{safeLanguageCode}.{safeOutputFormat}";
+        var filePath = GetSafeFilePath(outputDirectory, fileName);
+
+        byte[] content;
         try
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            if (notification == null)
-            {
-                throw new ArgumentNullException(nameof(notification), "Parameter cannot be null.");
-            }
-
-            var outputDirectory = "/tmp/etranslation";
-            Directory.CreateDirectory(outputDirectory);
-            var fileName = "sebaTest.txt";
-            var filePath = GetSafeFilePath(outputDirectory, fileName);
-
-            System.IO.File.WriteAllText(filePath, notification.ToString());
-
-            await _webhookService.ProcessNotificationAsync(notification);
-
-            return StatusCode((int)System.Net.HttpStatusCode.OK);
+            content = Convert.FromBase64String(base64Result);
         }
-        catch (Exception ex)
+        catch (FormatException ex)
         {
-            //_logger.LogError(ex);
-            return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
+            throw new ArgumentException("Result is not valid Base64.", nameof(base64Result), ex);
         }
+
+        File.WriteAllBytes(filePath, content);
+        
+        return filePath;
+    }
+
+    public string WriteResultToFile(string payloadContent)
+    {
+        if (string.IsNullOrWhiteSpace(payloadContent))
+        {
+            throw new ArgumentException("Result cannot be null or empty.", nameof(payloadContent));
+        }
+
+        var outputDirectory = _settings.TempFileLocationOutputPath;
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            throw new InvalidOperationException("ETranslationService:OutputPath is not configured.");
+        }
+
+        Directory.CreateDirectory(outputDirectory);
+
+        var fileName = $"{DateTime.Now.Ticks}.txt";
+        var filePath = GetSafeFilePath(outputDirectory, fileName);
+
+        byte[] content;
+        try
+        {
+            content = Encoding.UTF8.GetBytes(payloadContent);
+        }
+        catch (FormatException ex)
+        {
+            throw new ArgumentException("Result is not valid string.", nameof(payloadContent), ex);
+        }
+
+        File.WriteAllBytes(filePath, content);
+
+        return filePath;
+    }
+
+    public List<string> GetFilesList(long requestId)
+    {
+        var outputDirectory = _settings.TempFileLocationOutputPath;
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            throw new InvalidOperationException("ETranslationService:OutputPath is not configured.");
+        }
+
+        if (!Directory.Exists(outputDirectory))
+        {
+            return [];
+        }
+
+        var searchPattern = $"{requestId}-*";
+        return Directory
+            .EnumerateFiles(outputDirectory, searchPattern, SearchOption.TopDirectoryOnly)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string ValidatePathSegment(string value, string paramName)
+    {
+        if (!SafePathSegmentPattern().IsMatch(value))
+        {
+            throw new ArgumentException("Value contains invalid path characters.", paramName);
+        }
+
+        return value;
     }
 
     private static string GetSafeFilePath(string outputDirectory, string fileName)
@@ -77,115 +140,6 @@ public class FileTransferController : ControllerBase
         return fullFilePath;
     }
 
-    /// <summary>
-    /// Receives translation delivery notifications from eTranslation.
-    /// </summary>
-    [HttpPost]
-    [Route("v1/deliveries")]
-    [Consumes("application/json", "text/json")]
-    public async Task<IActionResult> HandleDeliveriesNotification([FromBody] ETranslationDeliveriesRequest notification)
-    {
-        try
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            if (notification == null)
-            {
-                throw new ArgumentNullException(nameof(notification), "Parameter cannot be null.");
-            }
-
-            await _webhookService.ProcessNotificationAsync(notification);
-
-            return StatusCode((int)System.Net.HttpStatusCode.OK);
-        }
-        catch (Exception ex)
-        {
-            //_logger.LogError(ex);
-            return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
-        }
-    }
-
-    /// <summary>
-    /// Receives translation success notifications from eTranslation.
-    /// </summary>
-    [HttpPost]
-    [Route("v1/success")]
-    [Consumes("application/json", "text/json")]
-    public async Task<IActionResult> HandleSuccessNotification([FromBody] ETranslationSuccessRequest notification)
-    {
-        try
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            if (notification == null)
-            {
-                throw new ArgumentNullException(nameof(notification), "Parameter cannot be null.");
-            }
-
-            await _webhookService.ProcessNotificationAsync(notification);
-
-            return StatusCode((int)System.Net.HttpStatusCode.OK);
-        }
-        catch (Exception ex)
-        {
-            //_logger.LogError(ex);
-            return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
-        }
-    }
-
-    /// <summary>
-    /// Receives translation error notifications from eTranslation.
-    /// </summary>
-    [HttpPost]
-    [Route("v1/error")]
-    [Consumes("application/json", "text/json")]
-    public async Task<IActionResult> HandleErrorNotification([FromBody] object notification)
-    {
-        try
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            if (notification == null)
-            {
-                throw new ArgumentNullException(nameof(notification), "Parameter cannot be null.");
-            }
-
-            await _webhookService.ProcessNotificationAsync(notification);
-
-            return StatusCode((int)System.Net.HttpStatusCode.OK);
-        }
-        catch (Exception ex)
-        {
-            //_logger.LogError(ex);
-            return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
-        }
-    }
-
-    /// <summary>
-    /// Returns the list of result files stored for a given eTranslation request.
-    /// </summary>
-    [HttpGet]
-    [Route("v1/documents/{requestId:long}")]
-    public IActionResult GetDocumentsList(long requestId)
-    {
-        try
-        {
-            var files = _webhookService.GetFilesList(requestId);
-            return Ok(files);
-        }
-        catch (Exception)
-        {
-            //_logger.LogError(ex);
-            return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
-        }
-    }
+    [GeneratedRegex("^[a-zA-Z0-9-]+$")]
+    private static partial Regex SafePathSegmentPattern();
 }
