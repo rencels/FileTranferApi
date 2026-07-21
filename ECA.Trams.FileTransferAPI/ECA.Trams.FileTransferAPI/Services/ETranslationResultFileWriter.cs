@@ -67,7 +67,6 @@ public partial class ETranslationResultFileWriter : IETranslationResultFileWrite
             throw new ArgumentException("Result cannot be null or empty.", nameof(payloadContent));
         }
 
-
         var outputDirectory = _settings.TempFileLocationOutputPath;
         if (string.IsNullOrWhiteSpace(outputDirectory))
         {
