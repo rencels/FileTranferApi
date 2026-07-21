@@ -1,6 +1,7 @@
 using ECA.Trams.FileTransferAPI.Utils;
 using System;
 using System.IO;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace ECA.Trams.FileTransferAPI.Services;
@@ -56,6 +57,40 @@ public partial class ETranslationResultFileWriter : IETranslationResultFileWrite
 
         File.WriteAllBytes(filePath, content);
         
+        return filePath;
+    }
+
+    public string WriteResultToFile(string payloadContent)
+    {
+        if (string.IsNullOrWhiteSpace(payloadContent))
+        {
+            throw new ArgumentException("Result cannot be null or empty.", nameof(payloadContent));
+        }
+
+
+        var outputDirectory = _settings.TempFileLocationOutputPath;
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            throw new InvalidOperationException("ETranslationService:OutputPath is not configured.");
+        }
+
+        Directory.CreateDirectory(outputDirectory);
+
+        var fileName = $"{DateTime.Now.Ticks}.txt";
+        var filePath = GetSafeFilePath(outputDirectory, fileName);
+
+        byte[] content;
+        try
+        {
+            content = Encoding.UTF8.GetBytes(payloadContent);
+        }
+        catch (FormatException ex)
+        {
+            throw new ArgumentException("Result is not valid string.", nameof(payloadContent), ex);
+        }
+
+        File.WriteAllBytes(filePath, content);
+
         return filePath;
     }
 
