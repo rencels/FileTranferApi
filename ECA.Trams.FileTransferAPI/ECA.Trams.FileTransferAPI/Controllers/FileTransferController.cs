@@ -22,6 +22,38 @@ public class FileTransferController : ControllerBase
     }
 
     /// <summary>
+    /// Receive the messages from the event source
+    /// </summary>
+    /// <param name="notification">The event notification</param>    
+    [HttpPost]
+    [Route("v1/test")]
+    [Consumes("application/json", "text/json")]
+    public async Task<IActionResult> Test([FromBody] object notification)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (notification == null)
+            {
+                throw new ArgumentNullException(nameof(notification), "Parameter cannot be null.");
+            }
+
+            await _webhookService.ProcessNotificationAsync(notification);
+
+            return StatusCode((int)System.Net.HttpStatusCode.OK);
+        }
+        catch (Exception ex)
+        {
+            //_logger.LogError(ex);
+            return StatusCode((int)System.Net.HttpStatusCode.InternalServerError);
+        }
+    }
+
+    /// <summary>
     /// Receives translation delivery notifications from eTranslation.
     /// </summary>
     [HttpPost]
