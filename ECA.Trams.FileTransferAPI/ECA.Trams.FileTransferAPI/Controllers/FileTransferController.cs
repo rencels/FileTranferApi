@@ -42,7 +42,7 @@ public class FileTransferController : ControllerBase
                 throw new ArgumentNullException(nameof(notification), "Parameter cannot be null.");
             }
 
-            var outputDirectory = "/tmp/etranslation";
+            var outputDirectory = "App_Data/etranslation";
             Directory.CreateDirectory(outputDirectory);
             var fileName = "sebaTest.txt";
             var filePath = GetSafeFilePath(outputDirectory, fileName);
